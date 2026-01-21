@@ -7,19 +7,25 @@ export default async function DashboardPage() {
   // Пока что просто показываем базовую страницу
   // Позже добавим авторизацию и фильтрацию по пользователю
   
-  const projects = await prisma.project.findMany({
-    take: 10,
-    orderBy: {
-      createdAt: 'desc',
-    },
-    include: {
-      preset: {
-        select: {
-          name: true,
+  let projects = [];
+  try {
+    projects = await prisma.project.findMany({
+      take: 10,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        preset: {
+          select: {
+            name: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error('Ошибка загрузки проектов:', error);
+    // Продолжаем работу даже если есть ошибка
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">

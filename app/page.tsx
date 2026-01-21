@@ -38,18 +38,18 @@ export default function Home() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-900">Статус проекта</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-900">Начало работы</h2>
           <p className="text-gray-600 mb-4">
-            Проект создан. Следующие шаги:
+            Для начала работы создайте первого администратора:
           </p>
-          <ol className="list-decimal list-inside space-y-2 text-gray-600">
-            <li>Настрой базу данных PostgreSQL (или используй Supabase/Neon)</li>
-            <li>Создай файл .env с DATABASE_URL</li>
-            <li>Выполни: npm install</li>
-            <li>Выполни: npm run db:generate</li>
-            <li>Выполни: npm run db:migrate</li>
-            <li>Запусти проект: npm run dev</li>
-          </ol>
+          <div className="mb-4">
+            <Link href="/setup">
+              <Button>Создать администратора</Button>
+            </Link>
+          </div>
+          <p className="text-sm text-gray-500">
+            После создания администратора вы сможете создавать пресеты через панель менеджера
+          </p>
         </div>
       </div>
     </main>
