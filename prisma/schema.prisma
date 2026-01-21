@@ -1,0 +1,567 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  phone         String?
+  passwordHash  String?
+  role          UserRole  @default(CUSTOMER)
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projectsAsCustomer Project[] @relation("ProjectCustomer")
+  projectsAsManager  Project[] @relation("ProjectManager")
+  createdPresets     Preset[]
+  brigade            Brigade?
+  comments           Comment[]
+  uploadedFiles      ProjectFile[]
+  payments           ProjectPayment[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  CUSTOMER
+  MANAGER
+  BUILDER
+  DESIGNER
+  ENGINEER
+  MODERATOR
+  SUPPLIER
+  COMPLETIONIST
+}
+
+model Brigade {
+  id              String   @id @default(cuid())
+  name            String
+  legalStatus     String?
+  registrationAddress String?
+  phone           String?
+  email           String?
+  description     String?
+  specialization  String?
+  yearsTogether   Int?
+  rating          Float?   @default(0)
+  reviewsCount    Int      @default(0)
+  completedProjects Int    @default(0)
+  onTimePercent   Float?   @default(0)
+  averageDuration Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members         BrigadeMember[]
+  projects        Project[] @relation("ProjectBrigade")
+  portfolio       PortfolioItem[]
+  documents       BrigadeDocument[]
+
+  @@map("brigades")
+}
+
+model BrigadeMember {
+  id          String   @id @default(cuid())
+  name        String
+  role        String
+  experience  Int?
+  photo       String?
+  order       Int      @default(0)
+  createdAt   DateTime  @default(now())
+
+  brigadeId  String
+  brigade    Brigade    @relation(fields: [brigadeId], references: [id], onDelete: Cascade)
+
+  @@map("brigade_members")
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  image       String
+  projectType String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  brigadeId  String
+  brigade    Brigade   @relation(fields: [brigadeId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_items")
+}
+
+model BrigadeDocument {
+  id          String   @id @default(cuid())
+  type        String
+  fileUrl     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  brigadeId  String
+  brigade    Brigade   @relation(fields: [brigadeId], references: [id], onDelete: Cascade)
+
+  @@map("brigade_documents")
+}
+
+model Preset {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  apartmentType   String?
+  style           String?
+  budgetCategory  String?
+  totalArea       Float?
+  basePrice       Float
+  duration        Int?
+  status          PresetStatus @default(DRAFT)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  
+  subsectionTypes PresetSubsectionType[]
+  budgetSections  PresetBudgetSection[]
+  stages          PresetStage[]
+  files           PresetFile[]
+  projects        Project[]
+
+  @@map("presets")
+}
+
+enum PresetStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model PresetSubsectionType {
+  id          String   @id @default(cuid())
+  presetId    String
+  code        String
+  name        String
+  order       Int      @default(0)
+  isDefault   Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+
+  preset      Preset   @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  subsections PresetBudgetSubsection[]
+  stageRelations PresetStageSubsectionType[]
+  checkpointRelations PresetCheckpoint[]
+
+  @@unique([presetId, code])
+  @@map("preset_subsection_types")
+}
+
+model PresetBudgetSection {
+  id          String   @id @default(cuid())
+  presetId    String
+  name        String
+  order       Int      @default(0)
+  totalAmount Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  preset      Preset   @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  subsections PresetBudgetSubsection[]
+
+  @@map("preset_budget_sections")
+}
+
+model PresetBudgetSubsection {
+  id          String   @id @default(cuid())
+  sectionId   String
+  subsectionTypeId String
+  name        String?
+  order       Int      @default(0)
+  totalAmount Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  section     PresetBudgetSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subsectionType PresetSubsectionType @relation(fields: [subsectionTypeId], references: [id], onDelete: Cascade)
+  items       PresetBudgetItem[]
+
+  @@unique([sectionId, subsectionTypeId])
+  @@map("preset_budget_subsections")
+}
+
+model PresetBudgetItem {
+  id          String   @id @default(cuid())
+  subsectionId String
+  name        String
+  quantity    Float?
+  unit        String?
+  unitPrice   Float?
+  totalPrice  Float    @default(0)
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  subsection PresetBudgetSubsection @relation(fields: [subsectionId], references: [id], onDelete: Cascade)
+
+  @@map("preset_budget_items")
+}
+
+model PresetStage {
+  id                    String   @id @default(cuid())
+  presetId              String
+  name                  String
+  order                 Int      @default(0)
+  plannedDurationDays   Int?
+  paymentPercent        Float    @default(0)
+  description           String?
+  createdAt             DateTime @default(now())
+
+  preset                Preset   @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  dependencies          PresetStageDependency[] @relation("StageDependencies")
+  dependentStages       PresetStageDependency[] @relation("DependentStages")
+  relatedSubsectionTypes PresetStageSubsectionType[]
+  checkpoints           PresetCheckpoint[]
+
+  @@map("preset_stages")
+}
+
+model PresetStageDependency {
+  id          String   @id @default(cuid())
+  stageId     String
+  dependsOnId String
+  
+  stage       PresetStage @relation("StageDependencies", fields: [stageId], references: [id], onDelete: Cascade)
+  dependsOn   PresetStage @relation("DependentStages", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, dependsOnId])
+  @@map("preset_stage_dependencies")
+}
+
+model PresetStageSubsectionType {
+  id                String   @id @default(cuid())
+  stageId           String
+  subsectionTypeId  String
+
+  stage             PresetStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  subsectionType    PresetSubsectionType @relation(fields: [subsectionTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, subsectionTypeId])
+  @@map("preset_stage_subsection_types")
+}
+
+model PresetCheckpoint {
+  id                      String   @id @default(cuid())
+  stageId                 String
+  name                    String
+  order                   Int      @default(0)
+  paymentPercentWithinStage Float  @default(0)
+  relatedSubsectionTypeId String?
+  description             String?
+  createdAt               DateTime @default(now())
+
+  stage                   PresetStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  relatedSubsectionType   PresetSubsectionType? @relation(fields: [relatedSubsectionTypeId], references: [id], onDelete: SetNull)
+
+  @@map("preset_checkpoints")
+}
+
+model PresetFile {
+  id          String   @id @default(cuid())
+  presetId    String
+  type        String
+  url         String
+  name        String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  preset      Preset   @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@map("preset_files")
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  presetId        String
+  name            String
+  address         String
+  status          ProjectStatus @default(DRAFT)
+  startDate       DateTime?
+  plannedEndDate  DateTime?
+  actualEndDate   DateTime?
+  totalBudget     Float    @default(0)
+  detailLevel     Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  preset          Preset   @relation(fields: [presetId], references: [id])
+  customerId      String
+  customer        User     @relation("ProjectCustomer", fields: [customerId], references: [id])
+  managerId       String?
+  manager         User?    @relation("ProjectManager", fields: [managerId], references: [id])
+  brigadeId       String?
+  brigade         Brigade? @relation("ProjectBrigade", fields: [brigadeId], references: [id])
+
+  subsectionTypes ProjectSubsectionType[]
+  budgetSections  ProjectBudgetSection[]
+  stages          ProjectStage[]
+  files           ProjectFile[]
+  payments        ProjectPayment[]
+  comments        Comment[]
+
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  READY_FOR_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+model ProjectSubsectionType {
+  id                  String   @id @default(cuid())
+  projectId           String
+  presetSubsectionTypeId String?
+  code                String
+  name                String
+  order               Int      @default(0)
+  isDefault           Boolean  @default(false)
+  description         String?
+  createdAt           DateTime @default(now())
+
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subsections         ProjectBudgetSubsection[]
+  stageRelations     ProjectStageSubsectionType[]
+  checkpointRelations ProjectCheckpoint[]
+  payments            ProjectPayment[]
+
+  @@unique([projectId, code])
+  @@map("project_subsection_types")
+}
+
+model ProjectBudgetSection {
+  id          String   @id @default(cuid())
+  projectId   String
+  presetBudgetSectionId String?
+  name        String
+  order       Int      @default(0)
+  plannedAmount Float  @default(0)
+  actualAmount Float   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subsections ProjectBudgetSubsection[]
+
+  @@map("project_budget_sections")
+}
+
+model ProjectBudgetSubsection {
+  id          String   @id @default(cuid())
+  sectionId   String
+  subsectionTypeId String
+  presetBudgetSubsectionId String?
+  name        String?
+  order       Int      @default(0)
+  plannedAmount Float  @default(0)
+  actualAmount Float   @default(0)
+  progress    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  section     ProjectBudgetSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subsectionType ProjectSubsectionType @relation(fields: [subsectionTypeId], references: [id], onDelete: Cascade)
+  items       ProjectBudgetItem[]
+
+  @@unique([sectionId, subsectionTypeId])
+  @@map("project_budget_subsections")
+}
+
+model ProjectBudgetItem {
+  id          String   @id @default(cuid())
+  subsectionId String
+  presetBudgetItemId String?
+  name        String
+  quantity    Float?
+  unit        String?
+  unitPrice   Float?
+  totalPrice  Float    @default(0)
+  actualQuantity Float?
+  actualUnitPrice Float?
+  actualTotalPrice Float? @default(0)
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subsection ProjectBudgetSubsection @relation(fields: [subsectionId], references: [id], onDelete: Cascade)
+
+  @@map("project_budget_items")
+}
+
+model ProjectStage {
+  id                String   @id @default(cuid())
+  projectId         String
+  presetStageId     String?
+  name              String
+  order             Int      @default(0)
+  status            StageStatus @default(NOT_STARTED)
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  paymentPercent    Float    @default(0)
+  progress          Float    @default(0)
+  description       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dependencies      ProjectStageDependency[] @relation("ProjectStageDependencies")
+  dependentStages   ProjectStageDependency[] @relation("ProjectDependentStages")
+  relatedSubsectionTypes ProjectStageSubsectionType[]
+  checkpoints       ProjectCheckpoint[]
+  files             ProjectFile[]
+
+  @@map("project_stages")
+}
+
+enum StageStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY_FOR_ACCEPTANCE
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+model ProjectStageDependency {
+  id          String   @id @default(cuid())
+  stageId     String
+  dependsOnId String
+  
+  stage       ProjectStage @relation("ProjectStageDependencies", fields: [stageId], references: [id], onDelete: Cascade)
+  dependsOn   ProjectStage @relation("ProjectDependentStages", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, dependsOnId])
+  @@map("project_stage_dependencies")
+}
+
+model ProjectStageSubsectionType {
+  id                String   @id @default(cuid())
+  stageId           String
+  subsectionTypeId String
+
+  stage             ProjectStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  subsectionType    ProjectSubsectionType @relation(fields: [subsectionTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, subsectionTypeId])
+  @@map("project_stage_subsection_types")
+}
+
+model ProjectCheckpoint {
+  id                      String   @id @default(cuid())
+  stageId                 String
+  presetCheckpointId      String?
+  name                    String
+  order                   Int      @default(0)
+  status                  CheckpointStatus @default(NOT_STARTED)
+  paymentPercentWithinStage Float  @default(0)
+  relatedSubsectionTypeId String?
+  submittedAt             DateTime?
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  description             String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  stage                   ProjectStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  relatedSubsectionType   ProjectSubsectionType? @relation(fields: [relatedSubsectionTypeId], references: [id], onDelete: SetNull)
+  files                   ProjectFile[]
+  payments                 ProjectPayment[]
+  comments                 Comment[]
+
+  @@map("project_checkpoints")
+}
+
+enum CheckpointStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED_BY_BUILDER
+  ACCEPTED_BY_CUSTOMER
+  REJECTED
+}
+
+model ProjectFile {
+  id                String   @id @default(cuid())
+  projectId         String
+  type              String
+  url               String
+  name              String
+  description       String?
+  uploadedById      String
+  relatedStageId    String?
+  relatedCheckpointId String?
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy        User     @relation(fields: [uploadedById], references: [id])
+  relatedStage      ProjectStage? @relation(fields: [relatedStageId], references: [id], onDelete: SetNull)
+  relatedCheckpoint ProjectCheckpoint? @relation(fields: [relatedCheckpointId], references: [id], onDelete: SetNull)
+
+  @@map("project_files")
+}
+
+model ProjectPayment {
+  id                String   @id @default(cuid())
+  projectId         String
+  checkpointId      String?
+  subsectionTypeId String
+  amount            Float
+  status            PaymentStatus @default(PENDING)
+  invoiceNumber     String?
+  invoiceDate       DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checkpoint        ProjectCheckpoint? @relation(fields: [checkpointId], references: [id], onDelete: SetNull)
+  subsectionType   ProjectSubsectionType @relation(fields: [subsectionTypeId], references: [id], onDelete: Cascade)
+  paidBy            User?    @relation(fields: [paidById], references: [id])
+  paidById          String?
+
+  @@map("project_payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  projectId   String
+  checkpointId String?
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checkpoint  ProjectCheckpoint? @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("comments")
+}
